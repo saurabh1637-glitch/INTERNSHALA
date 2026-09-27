@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pathfinder — Find Your Next Opportunity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1E2A3A;
+    --paper:#FBFAF5;
+    --paper-2:#F1EEE4;
+    --gold:#C08A2E;
+    --teal:#2E6B5E;
+    --line:#DEDACB;
+    --muted:#6B7280;
+    font-family:'Inter',sans-serif;
+    box-sizing:border-box;
+    padding-top: env(safe-area-inset-top,0px);
+    padding-bottom: env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#EDE9DD; --paper:#181C22; --paper-2:#20242C; --line:#333A45; --muted:#9AA1AC; --gold:#D6A34C; --teal:#4FA593;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#EDE9DD; --paper:#181C22; --paper-2:#20242C; --line:#333A45; --muted:#9AA1AC; --gold:#D6A34C; --teal:#4FA593;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);}
+  html{scroll-padding-top: env(safe-area-inset-top,0px);}
+  body{-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:'Fraunces',serif;margin:0;line-height:1.15;}
+  a{color:inherit;}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px;}
+
+  header.hero{padding:56px 0 40px;border-bottom:1px solid var(--line);}
+  .hero h1{font-size:clamp(2rem,4vw,2.9rem);font-weight:600;max-width:14ch;}
+  .hero p{max-width:52ch;color:var(--muted);font-size:1.05rem;margin-top:14px;line-height:1.55;}
+  .hero .stat-row{display:flex;gap:32px;margin-top:28px;flex-wrap:wrap;}
+  .stat{border-left:2px solid var(--gold);padding-left:12px;}
+  .stat b{font-family:'Fraunces',serif;font-size:1.6rem;display:block;}
+  .stat span{color:var(--muted);font-size:0.85rem;}
+
+  .finder{background:var(--paper-2);border:1px solid var(--line);border-radius:8px;padding:28px 28px 24px;margin:32px 0 0;}
+  .finder-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:6px;}
+  .finder-head h2{font-size:1.3rem;}
+  .finder-head p{color:var(--muted);font-size:0.92rem;margin-top:6px;max-width:48ch;line-height:1.5;}
+  .toggle-quiz{background:var(--ink);color:var(--paper);border:none;padding:9px 18px;border-radius:100px;font-size:0.85rem;cursor:pointer;white-space:nowrap;}
+  .toggle-quiz:hover{opacity:0.9;}
+  .quiz{display:none;margin-top:22px;}
+  .quiz.open{display:block;}
+  .q-block{margin-bottom:20px;}
+  .q-block p{font-size:0.95rem;font-weight:500;margin-bottom:10px;}
+  .q-options{display:flex;flex-wrap:wrap;gap:8px;}
+  .get-path-btn{background:var(--teal);color:#fff;border:none;padding:10px 20px;border-radius:100px;font-size:0.9rem;cursor:pointer;margin-top:4px;}
+  .get-path-btn:disabled{opacity:0.4;cursor:not-allowed;}
+  .path-result{margin-top:24px;padding-top:22px;border-top:1px solid var(--line);display:none;}
+  .path-result.show{display:block;}
+  .path-result h3{font-size:1.15rem;color:var(--teal);}
+  .path-result p.blurb{color:var(--muted);font-size:0.92rem;margin:8px 0 16px;max-width:58ch;line-height:1.5;}
+
+  .layout{display:grid;grid-template-columns:260px 1fr;gap:40px;padding:40px 0 80px;align-items:start;}
+  @media (max-width:760px){.layout{grid-template-columns:1fr;}}
+
+  .panel{position:sticky;top:20px;}
+  @media (max-width:760px){.panel{position:static;}}
+  .panel h2{font-size:1.1rem;margin-bottom:4px;}
+  .panel .sub{color:var(--muted);font-size:0.85rem;margin-bottom:18px;}
+  .group{margin-bottom:24px;}
+  .group h3{font-family:'Inter',sans-serif;font-size:0.78rem;font-weight:600;color:var(--muted);letter-spacing:0.02em;margin-bottom:10px;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{
+    border:1px solid var(--line);background:var(--paper-2);color:var(--ink);
+    padding:7px 13px;border-radius:100px;font-size:0.85rem;cursor:pointer;
+    transition:background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    user-select:none;
+  }
+  .chip:hover{border-color:var(--gold);}
+  .chip.active{background:var(--ink);border-color:var(--ink);color:var(--paper);}
+  .chip:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  .clear-btn{background:none;border:none;color:var(--teal);font-size:0.85rem;cursor:pointer;padding:0;margin-top:6px;text-decoration:underline;}
+
+  .results-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px;flex-wrap:wrap;gap:8px;}
+  .results-head h2{font-size:1.3rem;}
+  .results-head .count{color:var(--muted);font-size:0.9rem;}
+
+  .card{
+    display:grid;grid-template-columns:5px 1fr;gap:20px;margin-bottom:16px;
+    border:1px solid var(--line);background:var(--paper-2);border-radius:6px;overflow:hidden;
+  }
+  .card .stripe{background:var(--cat-color, var(--gold));}
+  .card .body{padding:18px 22px 20px;}
+  .card-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;}
+  .cat-label{font-size:0.75rem;color:var(--cat-color, var(--gold));font-weight:600;}
+  .card h3{font-size:1.2rem;margin-top:4px;}
+  .match-badge{font-size:0.78rem;color:var(--teal);white-space:nowrap;font-weight:600;}
+  .card p.desc{color:var(--muted);font-size:0.92rem;margin:8px 0 10px;line-height:1.5;}
+  .card p.hook{color:var(--teal);font-size:0.88rem;font-weight:500;margin:0 0 12px;line-height:1.45;}
+  .card .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .tag{font-size:0.75rem;background:var(--paper);border:1px solid var(--line);padding:3px 9px;border-radius:100px;color:var(--muted);}
+  .card .meta{display:flex;justify-content:space-between;font-size:0.82rem;color:var(--muted);flex-wrap:wrap;gap:8px;}
+  .card .meta .deadline{color:var(--ink);font-weight:500;}
+
+  .empty{border:1px dashed var(--line);border-radius:6px;padding:40px 24px;text-align:center;color:var(--muted);}
+  .empty b{color:var(--ink);}
+
+  footer{border-top:1px solid var(--line);padding:24px 0;color:var(--muted);font-size:0.82rem;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <h1>Find opportunities that actually fit you.</h1>
+    <p>Pick a few skills and interests below — internships, competitions, courses, certifications and scholarships get scored and sorted against your picks in real time. Weren't planning to sign up for anything? A few of these are free, take a single weekend, and need zero experience — worth a look before you scroll past.</p>
+    <div class="stat-row" id="statRow">
+      <div class="stat"><b id="statTotal">0</b><span>opportunities listed</span></div>
+      <div class="stat"><b id="statMatched">0</b><span>matching your picks</span></div>
+      <div class="stat"><b id="statTypes">5</b><span>categories</span></div>
+    </div>
+  </header>
+
+  <div class="finder">
+    <div class="finder-head">
+      <div>
+        <h2>Not sure what fits you?</h2>
+        <p>Answer three quick questions about how you like to work, and we'll point you toward a direction — plus real opportunities to start with.</p>
+      </div>
+      <button class="toggle-quiz" id="toggleQuiz" type="button">Find my path</button>
+    </div>
+    <div class="quiz" id="quizBody">
+      <div class="q-block" data-q="0">
+        <p>1. When a project starts, what do you gravitate toward?</p>
+        <div class="q-options"></div>
+      </div>
+      <div class="q-block" data-q="1">
+        <p>2. Which sounds like a good afternoon?</p>
+        <div class="q-options"></div>
+      </div>
+      <div class="q-block" data-q="2">
+        <p>3. Which project would you rather work on?</p>
+        <div class="q-options"></div>
+      </div>
+      <button class="get-path-btn" id="getPathBtn" type="button" disabled>Get my path</button>
+
+      <div class="path-result" id="pathResult">
+        <h3 id="pathTitle"></h3>
+        <p class="blurb" id="pathBlurb"></p>
+        <div id="pathCards"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="panel">
+      <h2>Your profile</h2>
+      <div class="sub">Pick up to 3 skills and 3 interests. Nothing selected shows everything.</div>
+
+      <div class="group">
+        <h3>Skills</h3>
+        <div class="chips" id="skillChips"></div>
+      </div>
+
+      <div class="group">
+        <h3>Interests</h3>
+        <div class="chips" id="interestChips"></div>
+      </div>
+
+      <div class="group">
+        <h3>Type</h3>
+        <div class="chips" id="typeChips"></div>
+      </div>
+
+      <button class="clear-btn" id="clearBtn">Clear all filters</button>
+    </div>
+
+    <div class="results">
+      <div class="results-head">
+        <h2>Opportunities for you</h2>
+        <div class="count" id="resultCount"></div>
+      </div>
+      <div id="cardList"></div>
+    </div>
+  </div>
+
+  <footer>Sample data for demo purposes — plug in a real feed to go live.</footer>
+</div>
+
+<script>
+const CATEGORY_COLORS = {
+  Internship: "#2E6B5E",
+  Competition: "#C08A2E",
+  Course: "#5B6FBE",
+  Certification: "#B5583F",
+  Scholarship: "#7A5EA8"
+};
+
+const OPPORTUNITIES = [
+  {title:"Frontend Engineering Internship", type:"Internship", org:"Nimbus Labs", tags:["Web Dev","JavaScript","Design"], deadline:"Oct 12", desc:"Build UI for a small product team, ship real features in 8 weeks.", hook:"You'll have a shipped feature to point to in interviews, not just a certificate."},
+  {title:"National Hackathon 2026", type:"Competition", org:"TechFest India", tags:["Web Dev","Python","AI/ML","Teamwork"], deadline:"Oct 3", desc:"48-hour build sprint across open problem tracks, cash prizes for top 3 teams.", hook:"One weekend, a team, and a working prototype by Monday morning."},
+  {title:"Intro to Machine Learning", type:"Course", org:"Coursera", tags:["Python","AI/ML","Data"], deadline:"Rolling", desc:"Self-paced course covering supervised learning fundamentals with projects.", hook:"No deadline pressure — start today, finish whenever suits your semester."},
+  {title:"Google Cloud Associate Cert", type:"Certification", org:"Google", tags:["Cloud","Python","Data"], deadline:"Anytime", desc:"Industry-recognized credential validating core cloud deployment skills.", hook:"A globally recognized badge recruiters actually search for by name."},
+  {title:"Merit Scholarship for CS Students", type:"Scholarship", org:"State Education Board", tags:["Academics"], deadline:"Nov 1", desc:"Tuition support for first-year students with strong academic records.", hook:"A 20-minute application could cover a real chunk of next semester's fees."},
+  {title:"UI/UX Design Sprint", type:"Competition", org:"Designathon", tags:["Design","Teamwork"], deadline:"Oct 20", desc:"Solve a real client brief in 72 hours, mentored by working designers.", hook:"Real client feedback on your work — the kind design students rarely get."},
+  {title:"Backend Development Internship", type:"Internship", org:"Kestrel Systems", tags:["Backend","Python","Databases"], deadline:"Oct 25", desc:"Work on API design and database architecture with a senior mentor.", hook:"One senior engineer, one-on-one, for eight straight weeks."},
+  {title:"Public Speaking Bootcamp", type:"Course", org:"Toastmasters Campus Chapter", tags:["Public Speaking","Communication"], deadline:"Rolling", desc:"Six-week structured practice with feedback from peer reviewers.", hook:"Free to join — most people say the nerves drop by week two."},
+  {title:"AWS Cloud Practitioner Cert", type:"Certification", org:"Amazon", tags:["Cloud","Backend"], deadline:"Anytime", desc:"Foundational certification covering core AWS services and pricing.", hook:"Entry-level exam, but it's the single most-listed cert on junior dev postings."},
+  {title:"Women in Tech Scholarship", type:"Scholarship", org:"TechForward Foundation", tags:["Academics","Web Dev"], deadline:"Nov 15", desc:"Financial award plus mentorship for women pursuing tech degrees.", hook:"Comes with a mentor, not just a cheque — many keep in touch for years."},
+  {title:"Data Storytelling Challenge", type:"Competition", org:"AnalyticsHub", tags:["Data","Design","Writing"], deadline:"Oct 8", desc:"Turn a messy public dataset into a compelling visual narrative.", hook:"You don't need to know code well — a sharp eye for a story is enough."},
+  {title:"Content Writing Internship", type:"Internship", org:"Bright Bytes Media", tags:["Writing","Communication"], deadline:"Oct 30", desc:"Write and edit technical explainers for a growing dev-education blog.", hook:"Your byline goes live on real published articles from week one."},
+  {title:"Full-Stack Web Development", type:"Course", org:"freeCodeCamp", tags:["Web Dev","JavaScript","Backend"], deadline:"Rolling", desc:"Project-based curriculum covering both frontend and backend basics.", hook:"Completely free, and you'll have five real projects for a portfolio by the end."},
+  {title:"Business Case Competition", type:"Competition", org:"Collegiate Consulting Club", tags:["Business","Public Speaking","Teamwork"], deadline:"Oct 18", desc:"Analyze a real business problem and pitch a solution to a judging panel.", hook:"No business background required — clear thinking matters more than a degree."},
+  {title:"Need-Based Tech Scholarship", type:"Scholarship", org:"National CS Trust", tags:["Academics"], deadline:"Nov 5", desc:"Covers partial tuition and a laptop stipend for eligible applicants.", hook:"Includes a laptop stipend — genuinely useful even beyond the tuition help."},
+  {title:"Chartered Accountancy Foundation Course", type:"Certification", org:"ICAI", tags:["Accounting","Finance"], deadline:"Nov 20", desc:"Entry-level CA certification covering accounting principles, law and quantitative aptitude.", hook:"The first real step toward one of commerce's most respected credentials."},
+  {title:"Investment Banking Summer Internship", type:"Internship", org:"Meridian Capital", tags:["Finance","Economics"], deadline:"Oct 15", desc:"Shadow analysts on live deals, build financial models and sit in on client pitches.", hook:"You'll sit in on calls most graduates don't see until their first job."},
+  {title:"Digital Marketing Internship", type:"Internship", org:"BrightLeaf Media", tags:["Marketing","Communication"], deadline:"Oct 22", desc:"Run real ad campaigns and learn analytics-driven marketing for a growing D2C brand.", hook:"You'll manage a real ad budget, not a simulation of one."},
+  {title:"National Commerce Olympiad", type:"Competition", org:"Commerce League", tags:["Accounting","Economics","Business"], deadline:"Oct 10", desc:"Timed rounds testing accounting, economics and business-case reasoning against peers nationwide.", hook:"Top scorers get noticed by recruiting partners at the closing ceremony."},
+  {title:"Fine Arts Portfolio Scholarship", type:"Scholarship", org:"National Arts Council", tags:["Fine Arts"], deadline:"Nov 8", desc:"Funding and studio access for students building a serious visual-arts portfolio.", hook:"Comes with studio time — space most students can't otherwise afford."},
+  {title:"Campus Theatre Festival", type:"Competition", org:"Dramatics Society Circuit", tags:["Performing Arts","Teamwork"], deadline:"Oct 5", desc:"Inter-college drama competition — write, direct or act in an original short piece.", hook:"First-timers welcome — half the cast every year has never performed before."},
+  {title:"Journalism & Media Internship", type:"Internship", org:"The Daily Edition", tags:["Journalism","Writing","Communication"], deadline:"Oct 28", desc:"Report, pitch and publish real stories under a newsroom editor's mentorship.", hook:"Your first published byline could happen in your very first week."},
+  {title:"Introduction to Psychology", type:"Course", org:"edX", tags:["Psychology"], deadline:"Rolling", desc:"Self-paced foundations course covering cognition, behavior and research methods.", hook:"Free audit option — genuinely useful even if psychology isn't your major."},
+  {title:"Law Entrance Prep Program", type:"Course", org:"LawPrep Academy", tags:["Law","Public Speaking"], deadline:"Rolling", desc:"Structured prep for law entrance exams with mock tests and reasoning drills.", hook:"First mock test is free — a low-risk way to see where you stand."},
+  {title:"History Research Fellowship", type:"Scholarship", org:"Heritage Studies Trust", tags:["History","Literature"], deadline:"Nov 12", desc:"Funded summer research placement archiving and studying regional historical records.", hook:"A funded research placement most first-years don't know even exists."},
+  {title:"Literary Magazine Editor Internship", type:"Internship", org:"Inkwell Press", tags:["Literature","Writing"], deadline:"Oct 26", desc:"Edit submissions and help shape an issue of an independent literary magazine.", hook:"Your name goes on the masthead of a real, distributed publication."},
+  {title:"Free Intro to Coding for Beginners", type:"Course", org:"Khan Academy", tags:["Web Dev"], deadline:"Rolling", desc:"Bite-sized lessons for absolute beginners, no prior experience assumed.", hook:"Zero cost, zero experience needed — a first project done in a single weekend."},
+  {title:"Weekend Photography Workshop", type:"Course", org:"Frame & Focus Studio", tags:["Fine Arts"], deadline:"Rolling", desc:"A two-day hands-on workshop covering composition, light and editing basics.", hook:"Bring any camera — even a phone — and leave with a small finished portfolio."},
+  {title:"Personal Finance for Students", type:"Course", org:"Zerodha Varsity", tags:["Finance","Economics"], deadline:"Rolling", desc:"Free self-paced modules on budgeting, saving and understanding investments.", hook:"Free, and useful for the rest of your life — not just for your resume."},
+  {title:"Campus Radio Host Program", type:"Internship", org:"Campus FM", tags:["Communication","Performing Arts"], deadline:"Oct 24", desc:"Host a weekly show and learn live broadcasting, scripting and editing.", hook:"You could be on air within your first two weeks, no experience required."},
+  {title:"Excel & Data Basics for Everyone", type:"Course", org:"Coursera", tags:["Data"], deadline:"Rolling", desc:"A practical, beginner-friendly course in spreadsheets and basic data analysis.", hook:"The single most-requested skill on entry-level job postings, and takes a weekend."},
+  {title:"Volunteer Teaching Fellowship", type:"Internship", org:"Teach For Change", tags:["Communication","Academics"], deadline:"Nov 2", desc:"Teach weekend classes to underserved students in your city, training provided.", hook:"No teaching background needed — just a few weekends and full training."},
+  {title:"Startup Weekend", type:"Competition", org:"Startup Weekend Campus", tags:["Business","Teamwork","Web Dev"], deadline:"Oct 17", desc:"Pitch an idea Friday night, build it, and demo a working version by Sunday.", hook:"54 hours, a team you'll meet that night, and no prior startup experience needed."},
+  {title:"Basic Graphic Design with Canva", type:"Course", org:"Canva Design School", tags:["Design","Fine Arts"], deadline:"Rolling", desc:"Free short course covering layout, color and simple brand design basics.", hook:"Free, drag-and-drop friendly — no design software experience required at all."}
+];
+
+const SKILLS = ["Web Dev","JavaScript","Python","Backend","Databases","Cloud","AI/ML","Data","Design","Writing","Accounting","Finance","Marketing","Fine Arts","Performing Arts","Journalism","Law"];
+const INTERESTS = ["Communication","Public Speaking","Teamwork","Business","Academics","Economics","Literature","Psychology","History"];
+const TYPES = ["Internship","Competition","Course","Certification","Scholarship"];
+
+const QUESTIONS = [
+  { options:[
+      {label:"Sketching how it should look and feel", path:"Creative"},
+      {label:"Figuring out the numbers behind it", path:"Analyst"},
+      {label:"Building the thing that makes it work", path:"Builder"},
+      {label:"Convincing others it's worth doing", path:"Strategist"}
+  ]},
+  { options:[
+      {label:"Untangling a messy dataset", path:"Analyst"},
+      {label:"Writing something people will actually read", path:"Communicator"},
+      {label:"Debugging code until it finally runs", path:"Builder"},
+      {label:"Setting up systems so nothing breaks", path:"Infrastructure"}
+  ]},
+  { options:[
+      {label:"A new app's login screen and layout", path:"Creative"},
+      {label:"A recommendation engine that learns from data", path:"Analyst"},
+      {label:"A pitch deck to win a client", path:"Strategist"},
+      {label:"A backend that stores millions of records", path:"Infrastructure"}
+  ]}
+];
+
+const PATHS = {
+  Builder:        {name:"Software / Web Development", blurb:"You like making things that actually work — start with hands-on coding and ship small projects fast.", tags:["Web Dev","JavaScript","Backend"]},
+  Analyst:        {name:"Data & AI", blurb:"You're drawn to patterns and numbers — data and machine learning let you find signal in the noise.", tags:["Data","AI/ML","Python"]},
+  Creative:       {name:"Design", blurb:"You think in layouts, color and flow — design work turns ideas into something people can actually use.", tags:["Design"]},
+  Strategist:     {name:"Business & Strategy", blurb:"You're drawn to the 'why' behind a project — business and consulting reward clear thinking and persuasion.", tags:["Business","Teamwork"]},
+  Communicator:   {name:"Writing & Communication", blurb:"You're at your best putting things into words — content, writing and public-facing roles fit naturally.", tags:["Writing","Communication","Public Speaking"]},
+  Infrastructure: {name:"Cloud & Systems", blurb:"You like things running reliably behind the scenes — cloud and backend infrastructure is your lane.", tags:["Cloud","Databases","Backend"]}
+};
+
+const quizAnswers = new Array(QUESTIONS.length).fill(null);
+
+function renderQuiz(){
+  QUESTIONS.forEach((q, qi)=>{
+    const optWrap = document.querySelector(`.q-block[data-q="${qi}"] .q-options`);
+    q.options.forEach(opt=>{
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.textContent = opt.label;
+      chip.addEventListener("click", ()=>{
+        quizAnswers[qi] = opt.path;
+        optWrap.querySelectorAll(".chip").forEach(c=>c.classList.remove("active"));
+        chip.classList.add("active");
+        document.getElementById("getPathBtn").disabled = quizAnswers.includes(null);
+      });
+      optWrap.appendChild(chip);
+    });
+  });
+}
+
+function topPath(){
+  const tally = {};
+  quizAnswers.forEach(p=>{ tally[p] = (tally[p]||0) + 1; });
+  let best = quizAnswers[0], bestCount = 0;
+  Object.entries(tally).forEach(([p,c])=>{ if(c > bestCount){ best = p; bestCount = c; } });
+  return best;
+}
+
+function tagOverlap(opp, tags){
+  let m = 0;
+  opp.tags.forEach(t=>{ if(tags.includes(t)) m++; });
+  return m;
+}
+
+function renderPathCard(o){
+  const card = document.createElement("div");
+  card.className = "card";
+  card.style.setProperty("--cat-color", CATEGORY_COLORS[o.type] || "#C08A2E");
+  card.innerHTML = `
+    <div class="stripe"></div>
+    <div class="body">
+      <div class="card-top">
+        <div>
+          <div class="cat-label">${o.type.toUpperCase()}</div>
+          <h3>${o.title}</h3>
+        </div>
+      </div>
+      <p class="desc">${o.desc}</p>
+      <p class="hook">${o.hook}</p>
+      <div class="tags">${o.tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>
+      <div class="meta"><span>${o.org}</span><span class="deadline">Deadline: ${o.deadline}</span></div>
+    </div>`;
+  return card;
+}
+
+document.getElementById("toggleQuiz").addEventListener("click", ()=>{
+  document.getElementById("quizBody").classList.toggle("open");
+});
+
+document.getElementById("getPathBtn").addEventListener("click", ()=>{
+  const path = PATHS[topPath()];
+  document.getElementById("pathTitle").textContent = "Your path: " + path.name;
+  document.getElementById("pathBlurb").textContent = path.blurb;
+
+  const matches = OPPORTUNITIES
+    .map(o=>({...o, s: tagOverlap(o, path.tags)}))
+    .filter(o=>o.s > 0)
+    .sort((a,b)=>b.s - a.s)
+    .slice(0,4);
+
+  const pathCards = document.getElementById("pathCards");
+  pathCards.innerHTML = "";
+  matches.forEach(o=> pathCards.appendChild(renderPathCard(o)));
+
+  document.getElementById("pathResult").classList.add("show");
+});
+
+renderQuiz();
+
+const state = { skills:new Set(), interests:new Set(), types:new Set() };
+
+function buildChips(container, items, set, maxSelect){
+  maxSelect = maxSelect || 1;
+  const el = document.getElementById(container);
+  el.innerHTML = "";
+  items.forEach(item=>{
+    const chip = document.createElement("button");
+    chip.className = "chip";
+    chip.type = "button";
+    chip.textContent = item;
+    chip.setAttribute("aria-pressed","false");
+    chip.addEventListener("click", ()=>{
+      const alreadyActive = set.has(item);
+      if(alreadyActive){
+        set.delete(item);
+        chip.classList.remove("active");
+        chip.setAttribute("aria-pressed","false");
+      } else if(maxSelect === 1){
+        set.clear();
+        el.querySelectorAll(".chip").forEach(c=>{c.classList.remove("active"); c.setAttribute("aria-pressed","false");});
+        set.add(item);
+        chip.classList.add("active");
+        chip.setAttribute("aria-pressed","true");
+      } else if(set.size < maxSelect){
+        set.add(item);
+        chip.classList.add("active");
+        chip.setAttribute("aria-pressed","true");
+      } else {
+        return; // cap reached, ignore this pick
+      }
+      render();
+    });
+    el.appendChild(chip);
+  });
+}
+
+function score(opp){
+  const picked = new Set([...state.skills, ...state.interests]);
+  if(picked.size === 0) return 0;
+  let matches = 0;
+  opp.tags.forEach(t=>{ if(picked.has(t)) matches++; });
+  return matches;
+}
+
+function render(){
+  const anyProfileFilter = state.skills.size + state.interests.size > 0;
+  let list = OPPORTUNITIES.map(o=>({...o, s:score(o)}));
+
+  if(state.types.size > 0){
+    list = list.filter(o=>state.types.has(o.type));
+  }
+
+  if(anyProfileFilter){
+    list = list.filter(o=>o.s>0).sort((a,b)=>b.s-a.s);
+  }
+
+  document.getElementById("statTotal").textContent = OPPORTUNITIES.length;
+  document.getElementById("statMatched").textContent = anyProfileFilter ? list.length : OPPORTUNITIES.length;
+  document.getElementById("resultCount").textContent = list.length + (list.length===1 ? " result" : " results");
+
+  const cardList = document.getElementById("cardList");
+  cardList.innerHTML = "";
+
+  if(list.length===0){
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.innerHTML = "<b>No matches yet.</b><br>Try clearing a filter or picking fewer, broader skills.";
+    cardList.appendChild(empty);
+    return;
+  }
+
+  list.forEach(o=>{
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.setProperty("--cat-color", CATEGORY_COLORS[o.type] || "#C08A2E");
+    const matchText = anyProfileFilter ? `<div class="match-badge">${o.s} tag match${o.s===1?"":"es"}</div>` : "";
+    card.innerHTML = `
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="card-top">
+          <div>
+            <div class="cat-label">${o.type.toUpperCase()}</div>
+            <h3>${o.title}</h3>
+          </div>
+          ${matchText}
+        </div>
+        <p class="desc">${o.desc}</p>
+        <p class="hook">${o.hook}</p>
+        <div class="tags">${o.tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>
+        <div class="meta"><span>${o.org}</span><span class="deadline">Deadline: ${o.deadline}</span></div>
+      </div>`;
+    cardList.appendChild(card);
+  });
+}
+
+buildChips("skillChips", SKILLS, state.skills, 3);
+buildChips("interestChips", INTERESTS, state.interests, 3);
+buildChips("typeChips", TYPES, state.types, 1);
+
+document.getElementById("clearBtn").addEventListener("click", ()=>{
+  state.skills.clear(); state.interests.clear(); state.types.clear();
+  document.querySelectorAll(".chip").forEach(c=>{c.classList.remove("active"); c.setAttribute("aria-pressed","false");});
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
